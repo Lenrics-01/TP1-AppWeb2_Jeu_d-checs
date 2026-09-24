@@ -43,3 +43,14 @@ où score(A) vaut 1, 0,5 ou 0 selon que A gagne, annule ou perd. Celui qui aband
 - ``deploy/compose.yml`` avec ``image:`` et non ``build:``, le compte et le tag lus dans un ``.env`` posé à côté, hors dépôt, qui démarre l'application sur une machine où il n'y a que Docker.
 - Les secrets (ex : identifiant et secret de l'application GitHub OAuth, clé de session) dans l'environnement, jamais dans le dépôt.
 - ``deploy/.env.example`` : les variables attendues, avec des valeurs d'exemple, et un README.md qui dit comment démarrer l'application, en développement et sur la machine de déploiement.
+
+# La remise
+Avant le mercredi 7 octobre 2026, à 23 h 59 :
+
+Le dépôt GitHub de l'équipe. S'il est privé, ajoutez-moi comme collaborateur (archambaultv) ; le paquet ghcr.io devra alors être rendu public.
+Un tag Git v1 sur le commit remis. Ce qui est poussé après ne compte pas.
+Sur LÉA : une seule remise par équipe, un fichier texte contenant
+l'URL du dépôt ;
+le nom des membres de l'équipe ;
+le tag sha- des images à corriger, celui que la chaîne d'intégration continue a publié pour le commit marqué v1.
+C'est ce tag que je mettrai dans mon .env pour démarrer votre application.
