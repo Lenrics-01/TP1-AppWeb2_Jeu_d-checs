@@ -1,140 +1,108 @@
-import { randomBytes, randomInt } from 'node:crypto';
-import { db, withTransaction } from './db.js';
+import crypto from 'node:crypto';
 
-const INITIAL_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-const GAME_RESULTS = new Set(['white_wins', 'black_wins', 'draw']);
+// Sans 0/O ni 1/I/L, pour qu'un code dicté ou recopié ne soit pas ambigu.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CODE_LENGTH = 6;
 
-function findGameRow(code) {
-	return db.prepare('SELECT * FROM games WHERE code = ?').get(code);
+function randomCode() {
+  let code = '';
+  for (let i = 0; i < CODE_LENGTH; i++) {
+    code += CODE_ALPHABET[crypto.randomInt(CODE_ALPHABET.length)];
+  }
+  return code;
 }
 
-function generateGameCode() {
-	return randomBytes(4).toString('hex').toUpperCase();
-}
+// Une partie avec le nom et l'Elo actuel de ses deux joueurs.
+const GAME_SELECT = `
+  SELECT g.*,
+         w.name AS white_name, w.elo AS white_elo,
+         b.name AS black_name, b.elo AS black_elo
+  FROM games g
+  LEFT JOIN players w ON w.id = g.white_id
+  LEFT JOIN players b ON b.id = g.black_id`;
 
-/** Crée une partie privée en attente et retourne son code. */
-export function createGame(hostPlayerId) {
-	let code;
-	do {
-		code = generateGameCode();
-	} while (findGameRow(code));
+/** Tout le SQL qui concerne les parties et leurs coups. */
+export function createGamesRepository(db) {
+  const insertGame = db.prepare('INSERT INTO games (code, creator_id, fen) VALUES (?, ?, ?)');
+  const codeExists = db.prepare('SELECT 1 FROM games WHERE code = ?');
+  const selectGame = db.prepare(`${GAME_SELECT} WHERE g.code = ?`);
 
-	db.prepare(`
-		INSERT INTO games (code, player_white_id, fen, status)
-		VALUES (?, ?, ?, 'waiting')
-	`).run(code, hostPlayerId, INITIAL_FEN);
+  // "AND status = 'waiting'" : c'est ce qui rend le code utilisable une seule fois.
+  // Si deux personnes rejoignent en même temps, une seule mise à jour touchera la ligne.
+  const updateJoin = db.prepare(
+    `UPDATE games SET white_id = ?, black_id = ?, status = 'active'
+     WHERE code = ? AND status = 'waiting'`,
+  );
 
-	return findGame(code);
-}
+  const selectMoves = db.prepare(
+    `SELECT ply, san, from_square AS "from", to_square AS "to"
+     FROM moves WHERE game_code = ? ORDER BY ply`,
+  );
+  const insertMove = db.prepare(
+    'INSERT INTO moves (game_code, ply, san, from_square, to_square) VALUES (?, ?, ?, ?, ?)',
+  );
+  const updateFen = db.prepare(`UPDATE games SET fen = ? WHERE code = ? AND status = 'active'`);
 
-/** Fait rejoindre le second joueur et attribue les couleurs au hasard. */
-export function joinGame(code, joiningPlayerId) {
-	return withTransaction(() => {
-		const game = findGameRow(code);
-		if (!game || game.status !== 'waiting' || game.player_white_id === null) {
-			return null;
-		}
-		if (game.player_white_id === joiningPlayerId) {
-			return null;
-		}
+  const updateFinish = db.prepare(
+    `UPDATE games
+     SET status = 'finished', result = ?, end_reason = ?,
+         white_elo_before = ?, white_elo_after = ?,
+         black_elo_before = ?, black_elo_after = ?,
+         finished_at = datetime('now')
+     WHERE code = ? AND status = 'active'`,
+  );
 
-		const hostIsWhite = randomInt(2) === 0;
-		const whitePlayerId = hostIsWhite ? game.player_white_id : joiningPlayerId;
-		const blackPlayerId = hostIsWhite ? joiningPlayerId : game.player_white_id;
-		const result = db.prepare(`
-			UPDATE games
-			SET player_white_id = ?, player_black_id = ?, status = 'active'
-			WHERE code = ? AND status = 'waiting' AND player_black_id IS NULL
-		`).run(whitePlayerId, blackPlayerId, code);
+  const selectHistory = db.prepare(
+    `${GAME_SELECT}
+     WHERE g.status = 'finished' AND (g.white_id = ? OR g.black_id = ?)
+     ORDER BY g.finished_at DESC, g.rowid DESC
+     LIMIT ?`,
+  );
 
-		return result.changes === 1 ? findGame(code) : null;
-	});
-}
+  return {
+    /** Crée une partie en attente et renvoie son code (unique). */
+    create(creatorId, fen) {
+      let code;
+      do {
+        code = randomCode();
+      } while (codeExists.get(code));
+      insertGame.run(code, creatorId, fen);
+      return code;
+    },
 
-/** Retourne la partie, avec les coups dans l'ordre où ils ont été joués. */
-export function findGame(code) {
-	const game = findGameRow(code);
-	if (!game) return null;
+    find(code) {
+      return selectGame.get(code);
+    },
 
-	const moves = db.prepare(`
-		SELECT id, game_code, san_move, move_number, fen_after
-		FROM moves
-		WHERE game_code = ?
-		ORDER BY move_number
-	`).all(code);
+    /** Renvoie true si la partie a bien été rejointe (le code était encore libre). */
+    join(code, whiteId, blackId) {
+      return updateJoin.run(whiteId, blackId, code).changes === 1;
+    },
 
-	return { ...game, moves };
-}
+    listMoves(code) {
+      return selectMoves.all(code);
+    },
 
-/** Retourne uniquement l'historique des coups d'une partie. */
-export function findMoves(code) {
-	return db.prepare(`
-		SELECT id, game_code, san_move, move_number, fen_after
-		FROM moves
-		WHERE game_code = ?
-		ORDER BY move_number
-	`).all(code);
-}
+    /**
+     * Enregistre un coup et la nouvelle position.
+     * ply doit être le rang du nouveau coup : la clé primaire refuse un doublon.
+     */
+    addMove({ code, ply, san, from, to, fen }) {
+      insertMove.run(code, ply, san, from, to);
+      return updateFen.run(fen, code).changes === 1;
+    },
 
-/** Persiste un coup et la nouvelle FEN ensemble. Les règles sont validées par chess.js en amont. */
-export function recordMove(code, playerId, sanMove, fenAfter) {
-	if (!sanMove || !fenAfter) throw new TypeError('Le coup et la FEN sont obligatoires.');
+    /** Termine la partie et note les classements avant/après. */
+    finish({ code, result, reason, white, black }) {
+      return (
+        updateFinish.run(result, reason, white.before, white.after, black.before, black.after, code)
+          .changes === 1
+      );
+    },
 
-	return withTransaction(() => {
-		const game = findGameRow(code);
-		if (!game || game.status !== 'active') return null;
-
-		const activeColor = game.fen.split(' ')[1];
-		const expectedPlayerId = activeColor === 'w'
-			? game.player_white_id
-			: game.player_black_id;
-		if (expectedPlayerId !== playerId) return null;
-
-		const { nextMoveNumber } = db.prepare(`
-			SELECT COALESCE(MAX(move_number), 0) + 1 AS nextMoveNumber
-			FROM moves
-			WHERE game_code = ?
-		`).get(code);
-
-		db.prepare(`
-			INSERT INTO moves (game_code, san_move, move_number, fen_after)
-			VALUES (?, ?, ?, ?)
-		`).run(code, sanMove, nextMoveNumber, fenAfter);
-
-		const update = db.prepare(`
-			UPDATE games SET fen = ?
-			WHERE code = ? AND status = 'active' AND fen = ?
-		`).run(fenAfter, code, game.fen);
-
-		if (update.changes !== 1) throw new Error('La position de la partie a changé.');
-		return { moveNumber: nextMoveNumber, fen: fenAfter };
-	});
-}
-
-/** Termine une partie par mat ou nulle. */
-export function finishGame(code, result) {
-	if (!GAME_RESULTS.has(result)) throw new TypeError('Résultat de partie invalide.');
-
-	return db.prepare(`
-		UPDATE games SET status = 'finished', result = ?
-		WHERE code = ? AND status = 'active'
-	`).run(result, code).changes === 1;
-}
-
-/** Termine la partie en donnant la victoire à l'adversaire du joueur qui abandonne. */
-export function resignGame(code, resigningPlayerId) {
-	return withTransaction(() => {
-		const game = findGameRow(code);
-		if (!game || game.status !== 'active') return false;
-
-		let result;
-		if (game.player_white_id === resigningPlayerId) result = 'black_wins';
-		else if (game.player_black_id === resigningPlayerId) result = 'white_wins';
-		else return false;
-
-		return db.prepare(`
-			UPDATE games SET status = 'finished', result = ?
-			WHERE code = ? AND status = 'active'
-		`).run(result, code).changes === 1;
-	});
+    /** Les parties terminées d'un joueur, la plus récente en premier. */
+    history(playerId, limit = 20) {
+      return selectHistory.all(playerId, playerId, limit);
+    },
+  };
 }

@@ -1,0 +1,32 @@
+# Pour essayer les images localement, construites à partir du code source :
+#   docker compose up --build
+# (Le déploiement, lui, utilise deploy/compose.yml avec les images de ghcr.io.)
+# Les valeurs viennent du fichier .env à la racine (voir .env.example).
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      DEV_LOGIN: ${DEV_LOGIN:-false}
+    volumes:
+      - echecs-data:/data
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    environment:
+      API_URL: http://server:4000
+      SESSION_SECRET: ${SESSION_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      DEV_LOGIN: ${DEV_LOGIN:-false}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+
+volumes:
+  echecs-data:

@@ -42,6 +42,7 @@ projet-2-echecs/
 │   │   ├── app.js
 │   │   ├── auth.js
 │   │   ├── elo.js
+│   │   ├── game.js
 │   │   ├── server.js
 │   │   ├── session.js
 │   │   └── repository/
@@ -53,8 +54,12 @@ projet-2-echecs/
 │       ├── elo.test.js
 │       ├── games.test.js
 │       └── helpers.js
+├── .dockerignore
+├── .env.example
 ├── .gitignore
 ├── README.md
 ├── compose.yml
-└── package.json
+├── package.json
+├── setup.sh
+└── structure-projet2.bash
 TREE
