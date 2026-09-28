@@ -24,5 +24,6 @@ CREATE TABLE IF NOT EXISTS moves (
     game_code TEXT NOT NULL,
     san_move TEXT NOT NULL,
     move_number INTEGER NOT NULL,
+    fen_after TEXT NOT NULL,
     FOREIGN KEY (game_code) REFERENCES games(code)
 );
