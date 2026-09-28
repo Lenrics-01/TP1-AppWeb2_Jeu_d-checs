@@ -1,20 +1,27 @@
 import { DatabaseSync } from 'node:sqlite';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import fs from 'node:fs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const dataFolder = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data');
 
-// On place la base de données dans le dossier data.
-const dbFolder = path.join(__dirname, '..', '..', 'data');
-const dbPath = process.env.DB_PATH || path.join(dbFolder, 'database.sqlite');
+/**
+ * Ouvre (ou crée) la base SQLite et s'assure que les tables existent.
+ * - En production : un fichier sur un volume Docker (DB_PATH=/data/echecs.sqlite).
+ * - En test : ':memory:', une base neuve et vide pour chaque test.
+ */
+export function openDatabase(file = ':memory:') {
+  if (file !== ':memory:') {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+  }
+  const db = new DatabaseSync(file);
+  // SQLite n'applique les clés étrangères que si on le demande.
+  db.exec('PRAGMA foreign_keys = ON');
+  db.exec(fs.readFileSync(path.join(dataFolder, 'schema.sql'), 'utf-8'));
+  return db;
+}
 
-const db = new DatabaseSync(dbPath);
-
-// Exécuter le schéma pour s'assurer que les tables existent
-const schemaPath = path.join(dbFolder, 'schema.sql');
-const schema = fs.readFileSync(schemaPath, 'utf-8');
-db.exec(schema);
-
-export default db;
+/** Ajoute quelques joueurs de démonstration (pour le classement en développement). */
+export function seedDatabase(db) {
+  db.exec(fs.readFileSync(path.join(dataFolder, 'seed.sql'), 'utf-8'));
+}

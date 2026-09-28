@@ -1,0 +1,36 @@
+# Déploiement sur une machine où il n'y a que Docker (pas le code source).
+# Les images sont téléchargées depuis ghcr.io : "image:", jamais "build:".
+# Toutes les valeurs ${...} sont lues dans le fichier .env posé à côté de ce
+# fichier (hors dépôt). Voir .env.example et README.md.
+#
+#   docker compose up -d     démarre
+#   docker compose down      arrête (le volume, donc les parties, est conservé)
+
+services:
+  server:
+    image: ghcr.io/${GHCR_OWNER}/${IMAGE_NAME:-tp1-appweb2-jeu-d-checs}-server:${TAG}
+    restart: unless-stopped
+    environment:
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+    volumes:
+      # La base SQLite vit dans ce volume nommé : elle survit à un redémarrage,
+      # à un "docker compose down" et à une mise à jour de l'image.
+      - echecs-data:/data
+    # Pas de "ports:" : l'API n'est joignable que par le client, sur le réseau interne.
+
+  client:
+    image: ghcr.io/${GHCR_OWNER}/${IMAGE_NAME:-tp1-appweb2-jeu-d-checs}-client:${TAG}
+    restart: unless-stopped
+    environment:
+      API_URL: http://server:4000
+      SESSION_SECRET: ${SESSION_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      - server
+
+volumes:
+  echecs-data:
