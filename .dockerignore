@@ -1,0 +1,11 @@
+# Ce qui n'est jamais envoyé à Docker lors d'un build (plus rapide, et aucun
+# secret ni base locale ne se retrouve dans une image).
+**/node_modules
+**/build
+**/.react-router
+**/*.sqlite*
+.env
+**/.env
+.git
+.github
+deploy
