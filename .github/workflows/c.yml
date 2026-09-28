@@ -1,0 +1,57 @@
+# Configuration de l'intégration continue pour le projet
+
+# GitHub exécute ce fichier à chaque push.
+
+name: CI
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # Ce qu'un coéquipier ferait sur une machine vide.
+      - run: npm ci
+      - run: npm test
+        env:
+          DATABASE_URL: postgres://quizm9:quizm9@localhost:5432/quizm9
+
+  image:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # publier dans ghcr.io
+    steps:
+      - uses: actions/checkout@v7
+
+      # GITHUB_TOKEN est fourni par GitHub à chaque exécution : pas de secret
+      # à créer. Le nom du propriétaire doit être en minuscules pour ghcr.io.
+      - name: Se connecter au registre
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # Deux tags par image : `latest`, qui bouge à chaque push, et
+      # `sha-xxxxxxx`, qui ne bougera jamais. Le serveur choisira.
+      - name: Construire et publier les images
+        run: |
+          OWNER=${GITHUB_REPOSITORY_OWNER,,}
+          SHA=sha-${GITHUB_SHA::7}
+
+          docker build -f server/Dockerfile \
+            -t ghcr.io/$OWNER/quizm9-api:latest \
+            -t ghcr.io/$OWNER/quizm9-api:$SHA .
+          docker push --all-tags ghcr.io/$OWNER/quizm9-api
+
+          docker build -f client/Dockerfile \
+            -t ghcr.io/$OWNER/quizm9-client:latest \
+            -t ghcr.io/$OWNER/quizm9-client:$SHA .
+          docker push --all-tags ghcr.io/$OWNER/quizm9-client
