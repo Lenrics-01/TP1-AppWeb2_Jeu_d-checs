@@ -141,3 +141,13 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# --- Projet échecs
+# Base SQLite locale (en production, elle vit dans un volume Docker)
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+# Build et fichiers générés par React Router
+build/
+.react-router/
