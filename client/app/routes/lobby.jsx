@@ -1,0 +1,57 @@
+// Salon d'attente : affiche le code à transmettre et attend l'adversaire.
+// Toutes les 1,5 s, on relance le loader (useRevalidator) ; dès que la partie
+// est active, le loader redirige vers la partie.
+import { useEffect, useRef, useState } from 'react';
+import { Link, data, redirect, useRevalidator } from 'react-router';
+import { apiOrLogin } from '../api.js';
+import { requireToken } from '../session.js';
+
+export function meta({ params }) {
+  return [{ title: `Partie ${params.code} — en attente` }];
+}
+
+export async function loader({ request, params }) {
+  const token = await requireToken(request);
+  const res = await apiOrLogin(`/api/games/${params.code}`, { token });
+  if (!res.ok) throw data(res.data?.error ?? 'Partie introuvable.', { status: res.status });
+  if (res.data.status !== 'waiting') throw redirect(`/games/${res.data.code}`);
+  return { code: res.data.code };
+}
+
+export default function Lobby({ loaderData }) {
+  const { code } = loaderData;
+  const revalidator = useRevalidator();
+  const [copied, setCopied] = useState(false);
+
+  // Un ref pour que l'intervalle soit créé une seule fois, tout en voyant
+  // toujours la dernière version de revalidator.
+  const revalidatorRef = useRef(revalidator);
+  revalidatorRef.current = revalidator;
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const r = revalidatorRef.current;
+      if (r.state === 'idle' && document.visibilityState === 'visible') r.revalidate();
+    }, 1500);
+    return () => clearInterval(id);
+  }, []);
+
+  async function copy() {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+  }
+
+  return (
+    <section className="card narrow center">
+      <h1>Partie créée</h1>
+      <p>Donnez ce code à votre adversaire :</p>
+      <p className="invite-code">{code}</p>
+      <button type="button" onClick={copy}>
+        {copied ? 'Copié !' : 'Copier le code'}
+      </button>
+      <p className="muted waiting">En attente de l’adversaire…</p>
+      <p className="muted small">Le code ne peut servir qu’une seule fois.</p>
+      <Link to="/">Retour à l’accueil</Link>
+    </section>
+  );
+}

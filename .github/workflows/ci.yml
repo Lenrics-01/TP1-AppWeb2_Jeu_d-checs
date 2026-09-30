@@ -1,0 +1,78 @@
+# Intégration continue.
+#   - À chaque push sur main et à chaque pull request : tests de l'API + build du client.
+#   - Sur main seulement, si les tests passent : publication des deux images sur ghcr.io,
+#     avec les tags "latest" et "sha-xxxxxxx" (le commit exact, utilisé par deploy/.env).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # Doit correspondre à IMAGE_NAME dans deploy/compose.yml et deploy/.env.example.
+  IMAGE_NAME: tp1-appweb2-jeu-d-checs
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      # Vérifie que le client compile (une erreur d'import casserait l'image).
+      - run: npm run build
+
+  publish:
+    # Les images ne sont publiées que si les tests passent, et seulement pour main
+    # (pas pour une pull request).
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        component: [server, client]
+    steps:
+      - uses: actions/checkout@v4
+
+      # ghcr.io exige un nom en minuscules (le propriétaire est "Lenrics-01").
+      - name: Nom de l'image
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Calcule les tags : latest et sha-<7 premiers caractères du commit>.
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.OWNER }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Contexte "." : les Dockerfiles ont besoin du package-lock.json à la racine.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.component }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
