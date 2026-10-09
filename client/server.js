@@ -27,6 +27,12 @@ const server = app.listen(port, () => {
   console.log(`Client prêt sur http://localhost:${port}`);
 });
 
+// docker compose stop envoie SIGTERM. server.close() attend la fin des requêtes en
+// cours (un loader qui attend l'API, par exemple) : sans closeAllConnections(), Docker
+// perd patience et tue le conteneur (code 137) au lieu d'un arrêt propre (code 0).
 for (const signal of ['SIGTERM', 'SIGINT']) {
-  process.on(signal, () => server.close(() => process.exit(0)));
+  process.on(signal, () => {
+    server.close(() => process.exit(0));
+    server.closeAllConnections();
+  });
 }

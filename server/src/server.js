@@ -27,11 +27,14 @@ const server = app.listen(port, () => {
 });
 
 // docker compose stop envoie SIGTERM : on ferme proprement la base avant de quitter.
+// closeAllConnections() : sans lui, server.close() attendrait la fin des requêtes en
+// cours, et Docker pourrait tuer le conteneur (code 137) avant la fermeture de la base.
 for (const signal of ['SIGTERM', 'SIGINT']) {
   process.on(signal, () => {
     server.close(() => {
       repo.close();
       process.exit(0);
     });
+    server.closeAllConnections();
   });
 }
