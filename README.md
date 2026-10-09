@@ -27,6 +27,8 @@ Prérequis : Node.js 22.13 ou plus récent (24 recommandé).
 
 **Tester à deux joueurs sur un seul poste** : avec `DEV_LOGIN=true` (valeur par défaut du `.env` de développement), la page `/login` propose aussi une connexion par nom, sans GitHub. Ouvrez une fenêtre normale et une fenêtre de navigation privée, avec deux noms différents. Cette route n'existe pas en production.
 
+**Jouer à deux sur deux ordinateurs** : chaque `npm run dev` a sa propre base, donc un code créé sur un poste n'existe pas sur l'autre. Un seul poste lance le projet avec `DEV_HOST=true` dans son `.env` ; l'autre ouvre `http://<IP de ce poste>:3000` (adresse affichée par `npm run dev`, ligne *Network*). Pour la connexion GitHub, ajouter aussi `http://<IP>:3000/login` aux adresses de retour de l'application OAuth ; sinon, utiliser la connexion par nom.
+
 Pour essayer les images Docker localement à partir du code source : `docker compose up --build` (voir `compose.yml`).
 
 ## Démarrer sur la machine de déploiement
