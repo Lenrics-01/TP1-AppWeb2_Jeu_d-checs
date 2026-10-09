@@ -55,20 +55,28 @@ const REASONS = {
 };
 
 export default function Game({ loaderData }) {
+  // La version la plus récente de la partie : celle du loader (premier affichage,
+  // ou après notre coup) ou celle reçue par le polling (coup de l'adversaire).
   const game = useChessGame(loaderData.game);
+  // useFetcher envoie un coup ou l'abandon à l'action de cette page, sans changer d'URL.
+  // mover.state : 'idle' ou envoi en cours ; mover.data : la réponse de l'action.
   const mover = useFetcher();
+  // État local : true pendant qu'on demande la confirmation de l'abandon.
   const [confirmResign, setConfirmResign] = useState(false);
 
+  // Valeurs calculées à chaque rendu à partir de la partie : pas besoin de useState.
   const me = game.yourColor;
   const opponent = me === 'white' ? 'black' : 'white';
   const active = game.status === 'active';
   const myTurn = active && game.turn === me;
   const pending = mover.state !== 'idle';
 
+  // Appelée par l'échiquier (prop onMove). C'est l'API qui décide si le coup est légal.
   function playMove(from, to, promotion) {
     mover.submit({ intent: 'move', from, to, promotion: promotion ?? '' }, { method: 'post' });
   }
 
+  // Récit 5 : abandonner, après confirmation.
   function resign() {
     setConfirmResign(false);
     mover.submit({ intent: 'resign' }, { method: 'post' });
@@ -77,7 +85,9 @@ export default function Game({ loaderData }) {
   return (
     <div className="game-layout">
       <div className="board-column">
+        {/* L'adversaire en haut, soi-même en bas. */}
         <PlayerBar player={game[opponent]} color={opponent} toMove={active && game.turn === opponent} />
+        {/* On ne peut cliquer que si c'est notre tour et qu'aucun envoi n'est en cours. */}
         <ChessBoard
           fen={game.fen}
           orientation={me}
@@ -91,17 +101,22 @@ export default function Game({ loaderData }) {
       <aside className="card side-panel">
         <p className="muted small">Partie {game.code}</p>
 
+        {/* Partie en cours : statut, erreur et abandon. Partie terminée : le résultat. */}
         {active ? (
+          // <>...</> (fragment) : regroupe plusieurs éléments sans ajouter de balise.
           <>
+            {/* Un coup noté en SAN qui finit par « + » met le roi adverse en échec. */}
             <p className={`status ${myTurn ? 'my-turn' : ''}`}>
               {myTurn ? 'À vous de jouer' : 'Au tour de l’adversaire…'}
               {game.moves.at(-1)?.endsWith('+') && ' — échec !'}
             </p>
+            {/* Récit 4 : le refus de l'API (coup illégal, hors tour, partie terminée). */}
             {mover.data?.error && (
               <p className="error" role="alert">
                 {mover.data.error}
               </p>
             )}
+            {/* Premier clic : on demande confirmation. Deuxième clic : on abandonne. */}
             {confirmResign ? (
               <div className="row">
                 <button type="button" className="danger" onClick={resign}>
@@ -128,6 +143,8 @@ export default function Game({ loaderData }) {
   );
 }
 
+// Le bandeau d'un joueur : couleur, nom et Elo. toMove le surligne quand c'est à lui de jouer.
+// Après la partie, on affiche son nouvel Elo (eloAfter) plutôt que l'ancien.
 function PlayerBar({ player, color, toMove, you = false }) {
   return (
     <div className={`player-bar ${toMove ? 'to-move' : ''}`}>
@@ -142,6 +159,8 @@ function PlayerBar({ player, color, toMove, you = false }) {
 
 // Récit 6 : le résultat et les deux classements mis à jour.
 function GameResult({ game }) {
+  // Le titre dépend du point de vue : le même résultat est une victoire pour l'un,
+  // une défaite pour l'autre.
   let title;
   if (game.result === 'draw') title = 'Partie nulle';
   else if (game.result === game.yourColor) title = 'Victoire !';
@@ -153,6 +172,7 @@ function GameResult({ game }) {
       <p>{REASONS[game.reason] ?? game.reason}</p>
       <table>
         <tbody>
+          {/* Une ligne par joueur : nom, Elo avant → après, et l'écart. */}
           {['white', 'black'].map((color) => {
             const p = game[color];
             const delta = p.eloAfter - p.eloBefore;
@@ -179,8 +199,11 @@ function GameResult({ game }) {
   );
 }
 
+// La liste des coups, deux par ligne comme sur une feuille de partie :
+// « 1. e4 e5 », « 2. Nf3 Nc6 »... (moves[0] = blancs, moves[1] = noirs, etc.).
 function MoveList({ moves }) {
   if (moves.length === 0) return <p className="muted">Aucun coup joué.</p>;
+  // On regroupe les coups par paires : une ligne = un coup des blancs + la réponse des noirs.
   const rows = [];
   for (let i = 0; i < moves.length; i += 2) {
     rows.push({ number: i / 2 + 1, white: moves[i], black: moves[i + 1] });

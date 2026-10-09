@@ -35,8 +35,12 @@ export function shouldRevalidate({ formMethod, currentUrl, nextUrl, defaultShoul
   return false;
 }
 
+// Layout : le squelette HTML commun à toutes les pages (en-tête + page courante).
+// Il est rendu d'abord sur le serveur, puis repris par React dans le navigateur.
 export function Layout({ children }) {
+  // Les données du loader de la racine (ci-dessus) : le joueur connecté, ou null.
   const rootData = useRouteLoaderData('root');
+  // « ?. » : rootData peut manquer, par exemple sur une page d'erreur.
   const player = rootData?.player;
 
   return (
@@ -44,6 +48,7 @@ export function Layout({ children }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* <Meta /> et <Links /> insèrent le <title> (fonctions meta) et les fichiers CSS. */}
         <Meta />
         <Links />
       </head>
@@ -52,11 +57,13 @@ export function Layout({ children }) {
           <Link to="/" className="brand">
             ♞ Échecs
           </Link>
+          {/* Rendu conditionnel : connecté → nom, Elo et déconnexion ; sinon → bouton de connexion. */}
           {player ? (
             <div className="whoami">
               <span>
                 {player.name} <span className="elo">{player.elo}</span>
               </span>
+              {/* Un formulaire POST et non un lien : voir routes/logout.jsx. */}
               <Form method="post" action="/logout">
                 <button type="submit" className="link-button">
                   Se déconnecter
@@ -69,14 +76,18 @@ export function Layout({ children }) {
             </Link>
           )}
         </header>
+        {/* children : la page courante (App), ou ErrorBoundary s'il y a eu une erreur. */}
         <main>{children}</main>
         <ScrollRestoration />
+        {/* <Scripts /> charge le JavaScript de React : la page HTML reçue du serveur
+            devient interactive dans le navigateur (« hydratation »). */}
         <Scripts />
       </body>
     </html>
   );
 }
 
+// App : <Outlet /> affiche la page qui correspond à l'URL (voir routes.js).
 export default function App() {
   return <Outlet />;
 }
@@ -85,9 +96,13 @@ export function meta() {
   return [{ title: 'Échecs en ligne' }];
 }
 
+// ErrorBoundary : affiché à la place de la page quand un loader lance une erreur,
+// par exemple throw data('Partie introuvable.', { status: 404 }) dans game.jsx.
 export function ErrorBoundary({ error }) {
   let title = 'Erreur';
   let message = 'Une erreur inattendue est survenue.';
+  // Erreur « prévue » (lancée avec data(...)) : on affiche son statut et son message.
+  // Sinon (bogue), on garde le message générique.
   if (isRouteErrorResponse(error)) {
     title = error.status === 404 ? 'Introuvable' : `Erreur ${error.status}`;
     message = typeof error.data === 'string' ? error.data : error.statusText || message;

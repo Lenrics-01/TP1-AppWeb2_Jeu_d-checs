@@ -18,9 +18,12 @@ export async function loader({ request, params }) {
   return { code: res.data.code };
 }
 
+// Récit 2 : la page qui affiche le code à transmettre à l'adversaire.
 export default function Lobby({ loaderData }) {
   const { code } = loaderData;
+  // useRevalidator permet de relancer le loader de la page à la demande.
   const revalidator = useRevalidator();
+  // État local : true après un clic sur « Copier le code », pour afficher « Copié ! ».
   const [copied, setCopied] = useState(false);
 
   // Un ref pour que l'intervalle soit créé une seule fois, tout en voyant
@@ -28,14 +31,18 @@ export default function Lobby({ loaderData }) {
   const revalidatorRef = useRef(revalidator);
   revalidatorRef.current = revalidator;
 
+  // [] : l'effet ne s'exécute qu'une fois, à l'affichage de la page.
+  // La fonction renvoyée arrête l'intervalle quand on quitte la page.
   useEffect(() => {
     const id = setInterval(() => {
       const r = revalidatorRef.current;
+      // Pas de nouvelle requête si la précédente n'est pas finie ou si l'onglet est caché.
       if (r.state === 'idle' && document.visibilityState === 'visible') r.revalidate();
     }, 1500);
     return () => clearInterval(id);
   }, []);
 
+  // Copie le code dans le presse-papiers (API du navigateur), puis affiche « Copié ! ».
   async function copy() {
     await navigator.clipboard.writeText(code);
     setCopied(true);
