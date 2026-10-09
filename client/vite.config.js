@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [reactRouter()],
     // Même port qu'en production : une seule URL de rappel dans l'application GitHub OAuth.
-    server: { port: 3000 },
+    // host: true -> le site de développement est aussi joignable depuis un autre
+    // ordinateur du même réseau (http://<IP de cet ordi>:3000), pour jouer à deux
+    // sur un seul serveur. L'API (port 4000) reste appelée par le serveur du client.
+    server: { port: 3000, host: true },
   };
 });
