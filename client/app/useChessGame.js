@@ -20,17 +20,25 @@ function version(game) {
  * ou rechargée après un de nos coups) ou celle reçue par le polling.
  */
 export function useChessGame(loaderGame) {
+  // Un fetcher réservé au polling, distinct de celui qui envoie les coups (game.jsx).
   const poller = useFetcher({ key: `poll-${loaderGame.code}` });
+  // La dernière partie reçue par le polling (undefined avant la première réponse).
   const polled = poller.data?.game;
+  // On garde la plus récente des deux versions : celle du loader ou celle du polling.
   const game =
     polled && polled.code === loaderGame.code && version(polled) > version(loaderGame)
       ? polled
       : loaderGame;
 
+  // useRef : l'intervalle lit toujours le fetcher le plus récent, sans être recréé
+  // à chaque rendu (même technique que dans lobby.jsx).
   const pollerRef = useRef(poller);
   pollerRef.current = poller;
 
+  // L'effet ne se relance que si le code ou le statut de la partie change.
+  // La fonction renvoyée (clearInterval) arrête le polling quand on quitte la page.
   useEffect(() => {
+    // Partie terminée : plus rien ne peut changer, on n'interroge plus l'API.
     if (game.status === 'finished') return;
     const id = setInterval(() => {
       const p = pollerRef.current;

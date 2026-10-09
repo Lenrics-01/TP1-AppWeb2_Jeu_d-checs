@@ -61,6 +61,8 @@ export async function action({ request }) {
   return redirect('/', { headers: { 'Set-Cookie': await commitSession(session) } });
 }
 
+// La page de connexion. Deux sources d'erreur possibles : l'action (connexion de
+// développement refusée) ou le loader (retour de GitHub en échec).
 export default function Login({ loaderData, actionData }) {
   const error = actionData?.error ?? loaderData.error;
   return (
@@ -77,6 +79,8 @@ export default function Login({ loaderData, actionData }) {
         </p>
       )}
 
+      {/* Affiché seulement si DEV_LOGIN=true (jamais en production). <Form> envoie
+          le nom à l'action de cette page, qui demande un jeton à l'API. */}
       {loaderData.devLogin && (
         <Form method="post" className="dev-login">
           <h2>Connexion de développement</h2>
