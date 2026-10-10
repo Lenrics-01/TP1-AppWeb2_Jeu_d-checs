@@ -134,7 +134,7 @@ export default function Home({ loaderData }) {
 
       {/* Récit 6 : l'historique des parties terminées, la plus récente en premier. */}
       <section className="card wide">
-        <h2>Historique</h2>
+        <h2>Historique des parties</h2>
         {history.length === 0 ? (
           <p className="muted">Aucune partie terminée pour l’instant.</p>
         ) : (

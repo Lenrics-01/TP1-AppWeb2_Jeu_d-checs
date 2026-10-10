@@ -55,7 +55,8 @@ export function Layout({ children }) {
       <body>
         <header className="site-header">
           <Link to="/" className="brand">
-            ♞ Échecs
+            <span className="brand-mark" aria-hidden="true">♞</span>
+            <span>ÉCHECS EN LIGNE</span>
           </Link>
           {/* Rendu conditionnel : connecté → nom, Elo et déconnexion ; sinon → bouton de connexion. */}
           {player ? (

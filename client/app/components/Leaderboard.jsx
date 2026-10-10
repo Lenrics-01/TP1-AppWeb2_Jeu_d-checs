@@ -5,7 +5,7 @@
 export default function Leaderboard({ players, currentId }) {
   return (
     <section className="card">
-      <h2>Classement</h2>
+      <h2>Classement mondial</h2>
       {players.length === 0 ? (
         <p className="muted">Aucun joueur pour l’instant.</p>
       ) : (
