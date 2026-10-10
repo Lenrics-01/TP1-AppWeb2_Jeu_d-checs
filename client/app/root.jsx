@@ -96,6 +96,21 @@ export function meta() {
   return [{ title: 'Échecs en ligne' }];
 }
 
+<<<<<<< HEAD
+=======
+// Icône de l'onglet (un cavalier), écrite directement dans la page. Sans elle, le
+// navigateur demande /favicon.ico, qui n'existe pas : React Router répond 404 et
+// écrit une erreur dans le journal à chaque visite.
+export function links() {
+  return [
+    {
+      rel: 'icon',
+      href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♞</text></svg>",
+    },
+  ];
+}
+
+>>>>>>> 95b90118d43c169c237c17ade2e64e24d85eb33c
 // ErrorBoundary : affiché à la place de la page quand un loader lance une erreur,
 // par exemple throw data('Partie introuvable.', { status: 404 }) dans game.jsx.
 export function ErrorBoundary({ error }) {
