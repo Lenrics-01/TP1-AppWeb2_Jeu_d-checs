@@ -3,7 +3,7 @@ Création d'un jeu d'échecs simple où deux personnes peuvent s'affronter norma
 
 # Points important
 - **Pondération** : 10 %
-- **Remise **: dépôt final, le mercredi 7 octobre 2026, à 23 h 59
+- **Remise **: dépôt final, le dimanche 11 octobre 2026, à 23 h 59
 - **Correction** : entretien individuel de 20 minutes, sous forme de revue de code, sur rendez-vous. Le lien pour réserver votre plage sera envoyé plus tard.
 - **L'intelligence artificielle** : permise, pour tout : le code, les tests, etc. Une seule règle : tout ce qui est dans le dépôt doit pouvoir être expliqué,
                                     quel que soit l'auteur, humain ou non. Par exemple, une personne qui ne sait pas dire ce que fait un test ou pourquoi
