@@ -8,6 +8,8 @@ import { apiUrl } from './api-url.js';
  * refus (400, 404, 409...) : c'est à la route de décider quoi afficher.
  */
 export async function api(path, { token, method = 'GET', body } = {}) {
+  // Les loaders et actions appellent cette fonction côté serveur du client.
+  // Le navigateur ne voit donc jamais directement le jeton de l'API.
   const headers = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -17,6 +19,8 @@ export async function api(path, { token, method = 'GET', body } = {}) {
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  // Lire text avant JSON permet de gérer aussi une réponse vide, par exemple
+  // le 204 renvoyé après une déconnexion.
   const text = await res.text();
   return { ok: res.ok, status: res.status, data: text ? JSON.parse(text) : null };
 }
@@ -24,6 +28,8 @@ export async function api(path, { token, method = 'GET', body } = {}) {
 /** Comme api(), mais renvoie vers /login si le jeton n'est plus valide (401). */
 export async function apiOrLogin(path, options) {
   const res = await api(path, options);
+  // Une session supprimée côté API doit aussi faire disparaître l'état de
+  // navigation côté client; la route React Router s'occupe de la redirection.
   if (res.status === 401) throw redirect('/login');
   return res;
 }

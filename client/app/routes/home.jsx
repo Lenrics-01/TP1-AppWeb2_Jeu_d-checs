@@ -1,20 +1,32 @@
 // Page d'accueil — rendue côté serveur : le classement et l'historique arrivent
 // déjà dans le HTML, sans écran de chargement.
+// Form et Link créent des navigations React Router sans gérer fetch à la main.
+// redirect renvoie une réponse HTTP de navigation depuis un loader ou une action.
+// Les hooks lisent les données de l'action, son état de chargement et le loader racine.
 import { Form, Link, redirect, useActionData, useNavigation, useRouteLoaderData } from 'react-router';
+// api lit les données publiques; apiOrLogin ajoute une redirection si la session expire.
 import { api, apiOrLogin } from '../api.js';
+// getToken lit le cookie sans imposer une connexion; requireToken la rend obligatoire.
 import { getToken, requireToken } from '../session.js';
+// Le classement est isolé dans un composant réutilisable.
 import Leaderboard from '../components/Leaderboard.jsx';
 
 export function meta() {
+  // Le titre est envoyé au navigateur pendant le rendu serveur.
   return [{ title: 'Accueil — Échecs en ligne' }];
 }
 
 export async function loader({ request }) {
+  // Le loader s'exécute côté serveur avant le rendu de la page.
   const token = await getToken(request);
+  // Les deux appels sont indépendants: le classement est public, l'historique non.
   const [leaderboard, history] = await Promise.all([
+    // Le classement est toujours demandé, y compris pour un visiteur anonyme.
     api('/api/leaderboard'),
+    // Sans token, on évite un appel protégé et on représente l'absence par null.
     token ? api('/api/me/games', { token }) : null,
   ]);
+  // Le composant reçoit des tableaux même si l'API est momentanément indisponible.
   return {
     leaderboard: leaderboard.ok ? leaderboard.data : [],
     history: history?.ok ? history.data : [],
@@ -23,9 +35,12 @@ export async function loader({ request }) {
 
 // Les deux formulaires de la page : créer une partie ou en rejoindre une.
 export async function action({ request }) {
+  // Toute création ou participation exige une session valide.
   const token = await requireToken(request);
+  // formData contient les champs du <Form> qui a déclenché cette action.
   const form = await request.formData();
 
+  // La valeur create du bouton distingue le formulaire de création.
   if (form.get('intent') === 'create') {
     // Récit 2 : on reçoit un code, puis on attend l'adversaire dans le salon.
     const res = await apiOrLogin('/api/games', { token, method: 'POST' });

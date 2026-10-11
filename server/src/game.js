@@ -4,6 +4,10 @@ import { Chess } from 'chess.js';
 
 export const START_FEN = new Chess().fen();
 
+// La FEN décrit la position actuelle; les coups SAN conservent l'historique.
+// L'API stocke les deux afin d'afficher rapidement la position tout en pouvant
+// reconstruire l'historique complet pour les règles de répétition.
+
 /**
  * Reconstruit la partie en rejouant ses coups depuis la position initiale.
  * On pourrait partir de la FEN seule, mais rejouer la liste des coups donne à
@@ -11,6 +15,8 @@ export const START_FEN = new Chess().fen();
  */
 export function replay(sanMoves) {
   const chess = new Chess();
+  // Rejouer les coups dans l'ordre permet à chess.js de reconstruire son état
+  // interne, notamment les positions nécessaires à la triple répétition.
   for (const san of sanMoves) chess.move(san);
   return chess;
 }
@@ -26,6 +32,8 @@ export function turnColor(chess) {
  * Promotion : dame par défaut ; ignorée par chess.js si le coup n'en est pas une.
  */
 export function tryMove(chess, { from, to, promotion = 'q' }) {
+  // Les contrôles de route vérifient déjà le joueur et son tour; chess.js reste
+  // l'autorité finale pour la légalité du déplacement et de la promotion.
   try {
     return chess.move({ from, to, promotion });
   } catch {
@@ -35,6 +43,8 @@ export function tryMove(chess, { from, to, promotion = 'q' }) {
 
 /** Fin de partie après le dernier coup, ou null si la partie continue. */
 export function outcome(chess) {
+  // On teste les fins de partie après le dernier coup, avant de renvoyer null
+  // pour une partie qui peut encore continuer.
   if (chess.isCheckmate()) {
     // Le camp qui doit jouer est mat : c'est l'autre qui gagne.
     return { result: chess.turn() === 'w' ? 'black' : 'white', reason: 'checkmate' };

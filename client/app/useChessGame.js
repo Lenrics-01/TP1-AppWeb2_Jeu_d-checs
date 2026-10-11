@@ -30,6 +30,10 @@ export function useChessGame(loaderGame) {
       ? polled
       : loaderGame;
 
+  // Le loader fournit toujours une partie immédiatement, tandis que le
+  // fetcher peut recevoir ensuite le coup de l'adversaire. On compare donc
+  // les versions avant de remplacer l'état affiché.
+
   // useRef : l'intervalle lit toujours le fetcher le plus récent, sans être recréé
   // à chaque rendu (même technique que dans lobby.jsx).
   const pollerRef = useRef(poller);
@@ -42,6 +46,8 @@ export function useChessGame(loaderGame) {
     if (game.status === 'finished') return;
     const id = setInterval(() => {
       const p = pollerRef.current;
+      // L'onglet caché n'a pas besoin de requêtes fréquentes; au retour, le
+      // prochain cycle récupère simplement la version la plus récente.
       if (p.state === 'idle' && document.visibilityState === 'visible') {
         p.load(`/games/${game.code}`);
       }

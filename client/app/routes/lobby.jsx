@@ -1,25 +1,32 @@
 // Salon d'attente : affiche le code à transmettre et attend l'adversaire.
 // Toutes les 1,5 s, on relance le loader (useRevalidator) ; dès que la partie
 // est active, le loader redirige vers la partie.
+// Ces hooks gèrent le polling, la référence stable et l'état du bouton copier.
 import { useEffect, useRef, useState } from 'react';
+// useRevalidator relance le loader sans changer l'URL.
 import { Link, data, redirect, useRevalidator } from 'react-router';
+// Les loaders appellent l'API côté serveur et gèrent les sessions expirées.
 import { apiOrLogin } from '../api.js';
 import { requireToken } from '../session.js';
 
 export function meta({ params }) {
+  // Le code est inclus dans le titre pour identifier le salon ouvert.
   return [{ title: `Partie ${params.code} — en attente` }];
 }
 
 export async function loader({ request, params }) {
+  // Le créateur doit être authentifié pour consulter son salon.
   const token = await requireToken(request);
   const res = await apiOrLogin(`/api/games/${params.code}`, { token });
   if (!res.ok) throw data(res.data?.error ?? 'Partie introuvable.', { status: res.status });
+  // Dès qu'un adversaire rejoint, le prochain polling redirige vers le plateau.
   if (res.data.status !== 'waiting') throw redirect(`/games/${res.data.code}`);
   return { code: res.data.code };
 }
 
 // Récit 2 : la page qui affiche le code à transmettre à l'adversaire.
 export default function Lobby({ loaderData }) {
+  // Le code est fourni par le loader, donc présent dès le rendu serveur.
   const { code } = loaderData;
   // useRevalidator permet de relancer le loader de la page à la demande.
   const revalidator = useRevalidator();
@@ -44,6 +51,7 @@ export default function Lobby({ loaderData }) {
 
   // Copie le code dans le presse-papiers (API du navigateur), puis affiche « Copié ! ».
   async function copy() {
+    // L'API Clipboard appartient au navigateur; aucune donnée sensible n'est copiée.
     await navigator.clipboard.writeText(code);
     setCopied(true);
   }

@@ -1,21 +1,28 @@
 // Tests d'intégration de l'API : de vraies requêtes HTTP vers Express,
 // une vraie base SQLite (en mémoire). Un bloc describe par récit.
+// Les hooks du test runner créent et ferment une API autour de chaque cas.
 import { describe, it, beforeEach, afterEach } from 'node:test';
+// assert vérifie les statuts HTTP et les objets JSON retournés.
 import assert from 'node:assert/strict';
+// fs, os et path servent uniquement au test de persistance sur fichier.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+// Le helper fournit login, request et les parcours de jeu réutilisables.
 import { startTestServer } from './helpers.js';
 
 let api;
 beforeEach(async () => {
+  // Chaque test démarre avec une base mémoire neuve.
   api = await startTestServer();
 });
 afterEach(async () => {
+  // La fermeture évite de laisser un port ou une connexion SQLite ouverte.
   await api.close();
 });
 
 describe('Récit 1 : connexion', () => {
+  // Ces tests couvrent l'authentification, la création du joueur et la révocation.
   it('refuse les routes protégées sans jeton', async () => {
     const res = await api.request('GET', '/api/me');
     assert.equal(res.status, 401);
@@ -49,6 +56,7 @@ describe('Récit 1 : connexion', () => {
 });
 
 describe('Récit 2 : créer une partie privée', () => {
+  // Le créateur reçoit un code et la partie reste en attente.
   it('renvoie un code de 6 caractères et une partie en attente', async () => {
     const { token } = await api.login('alice');
     const res = await api.request('POST', '/api/games', { token });
@@ -66,6 +74,7 @@ describe('Récit 2 : créer une partie privée', () => {
 });
 
 describe('Récit 3 : rejoindre avec un code', () => {
+  // Ces cas couvrent la normalisation, les collisions et l'attribution des couleurs.
   it('démarre la partie et attribue une couleur à chacun', async () => {
     const alice = await api.login('alice');
     const bob = await api.login('bob');
@@ -130,6 +139,7 @@ describe('Récit 3 : rejoindre avec un code', () => {
 });
 
 describe('Récit 4 : jouer un coup', () => {
+  // Ces cas vérifient les règles d'accès avant la validation chess.js.
   it('enregistre le coup et l’adversaire le voit', async () => {
     const game = await api.startGame();
     const res = await api.request('POST', `/api/games/${game.code}/moves`, {
@@ -209,6 +219,7 @@ describe('Récit 4 : jouer un coup', () => {
 });
 
 describe('Récit 5 : abandonner', () => {
+  // L'abandon termine la partie et modifie les deux classements.
   it('fait perdre celui qui abandonne et met à jour les deux Elo', async () => {
     const game = await api.startGame();
     const res = await api.request('POST', `/api/games/${game.code}/resign`, {
@@ -233,6 +244,7 @@ describe('Récit 5 : abandonner', () => {
 });
 
 describe('Récit 6 : fin de partie, classements et historique', () => {
+  // Mat, pat, historique et classement sont vérifiés après des parties terminées.
   it('termine par mat (le « mat du lion », le plus rapide possible) et met à jour les Elo', async () => {
     const game = await api.startGame();
     const res = await api.playSan(game, ['f3', 'e5', 'g4', 'Qh4#']);
@@ -283,6 +295,7 @@ describe('Récit 6 : fin de partie, classements et historique', () => {
 });
 
 describe('Persistance', () => {
+  // Ce groupe ferme puis recrée l'API avec le même fichier SQLite.
   it('une partie survit à un redémarrage du serveur', async () => {
     // Ici on a besoin d'un vrai fichier : une base en mémoire disparaît avec le serveur.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'echecs-'));

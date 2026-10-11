@@ -8,6 +8,8 @@ export { openDatabase, seedDatabase } from './db.js';
  * seulement des fonctions comme repo.games.find(code).
  */
 export function createRepository(db) {
+  // Cette façade sépare les routes HTTP du SQL : app.js utilise des méthodes
+  // métier comme games.find() plutôt que de connaître les tables directement.
   return {
     accounts: createAccountsRepository(db),
     games: createGamesRepository(db),
@@ -18,6 +20,8 @@ export function createRepository(db) {
      * nouveaux Elo ensemble ; une erreur au milieu annule tout.
      */
     transaction(fn) {
+      // Un coup pouvant aussi terminer la partie et modifier les Elo, ces
+      // écritures doivent réussir ensemble ou être toutes annulées.
       db.exec('BEGIN');
       try {
         const result = fn();

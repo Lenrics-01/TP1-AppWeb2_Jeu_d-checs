@@ -10,9 +10,11 @@
 // pour ne pas dépendre de GitHub.
 
 export function createGithubClient({ clientId, clientSecret, fetchFn = fetch }) {
+  // fetchFn est injectable pour tester OAuth sans appeler le vrai réseau GitHub.
   return {
     /** Renvoie { githubId, name } pour le code reçu de GitHub, ou lève une erreur. */
     async exchangeCode(code, redirectUri) {
+      // Le code reçu dans l'URL est temporaire et doit être échangé côté serveur.
       const tokenResponse = await fetchFn('https://github.com/login/oauth/access_token', {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -23,11 +25,13 @@ export function createGithubClient({ clientId, clientSecret, fetchFn = fetch }) 
           redirect_uri: redirectUri,
         }),
       });
+      // GitHub répond en JSON quand Accept demande explicitement ce format.
       const tokenData = await tokenResponse.json();
       if (!tokenData.access_token) {
         throw new Error(tokenData.error_description ?? 'Échange du code GitHub refusé');
       }
 
+      // Le token GitHub sert maintenant à lire le profil de l'utilisateur.
       const userResponse = await fetchFn('https://api.github.com/user', {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
@@ -39,6 +43,7 @@ export function createGithubClient({ clientId, clientSecret, fetchFn = fetch }) 
       const user = await userResponse.json();
 
       // L'id numérique ne change jamais, contrairement au login : c'est lui qui identifie.
+      // L'identifiant numérique est stable; le login peut changer.
       return { githubId: String(user.id), name: user.login };
     },
   };

@@ -1,10 +1,13 @@
+// crypto.randomInt fournit un tirage uniforme pour les codes de salon.
 import crypto from 'node:crypto';
 
 // Sans 0/O ni 1/I/L, pour qu'un code dicté ou recopié ne soit pas ambigu.
+// Les caractères visuellement ambigus sont volontairement absents.
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
 
 function randomCode() {
+  // On construit un code caractère par caractère pour garder une longueur fixe.
   let code = '';
   for (let i = 0; i < CODE_LENGTH; i++) {
     code += CODE_ALPHABET[crypto.randomInt(CODE_ALPHABET.length)];
@@ -13,6 +16,7 @@ function randomCode() {
 }
 
 // Une partie avec le nom et l'Elo actuel de ses deux joueurs.
+// Cette jointure enrichit une partie avec les noms et Elo visibles par le client.
 const GAME_SELECT = `
   SELECT g.*,
          w.name AS white_name, w.elo AS white_elo,
@@ -23,6 +27,7 @@ const GAME_SELECT = `
 
 /** Tout le SQL qui concerne les parties et leurs coups. */
 export function createGamesRepository(db) {
+  // Toutes les requêtes sont préparées au démarrage et paramétrées à l'exécution.
   const insertGame = db.prepare('INSERT INTO games (code, creator_id, fen) VALUES (?, ?, ?)');
   const codeExists = db.prepare('SELECT 1 FROM games WHERE code = ?');
   const selectGame = db.prepare(`${GAME_SELECT} WHERE g.code = ?`);
@@ -62,6 +67,7 @@ export function createGamesRepository(db) {
   return {
     /** Crée une partie en attente et renvoie son code (unique). */
     create(creatorId, fen) {
+      // Une collision est extrêmement improbable, mais la boucle la rend impossible.
       let code;
       do {
         code = randomCode();
@@ -71,6 +77,7 @@ export function createGamesRepository(db) {
     },
 
     find(code) {
+      // undefined signifie que le code n'existe pas.
       return selectGame.get(code);
     },
 
@@ -80,6 +87,7 @@ export function createGamesRepository(db) {
     },
 
     listMoves(code) {
+      // Les coups sont toujours renvoyés dans l'ordre de leur numéro de demi-coup.
       return selectMoves.all(code);
     },
 
@@ -88,6 +96,7 @@ export function createGamesRepository(db) {
      * ply doit être le rang du nouveau coup : la clé primaire refuse un doublon.
      */
     addMove({ code, ply, san, from, to, fen }) {
+      // Le SAN sert à rejouer la partie; les cases servent à afficher le dernier coup.
       insertMove.run(code, ply, san, from, to);
       return updateFen.run(fen, code).changes === 1;
     },

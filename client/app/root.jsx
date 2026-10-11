@@ -1,3 +1,4 @@
+// Ces éléments construisent le document HTML partagé et les navigations React Router.
 import {
   Form,
   Link,
@@ -10,17 +11,21 @@ import {
   isRouteErrorResponse,
   useRouteLoaderData,
 } from 'react-router';
+// Le loader racine utilise l'API pour connaître le joueur connecté.
 import { api } from './api.js';
+// Le cookie est détruit si l'API refuse le token conservé.
 import { destroySession, getSession } from './session.js';
 import './styles.css';
 
 // Le loader de la racine s'exécute pour toutes les pages : il fournit le joueur
 // connecté (nom et Elo) à l'en-tête et à toutes les routes (useRouteLoaderData('root')).
 export async function loader({ request }) {
+  // Ce loader est partagé par toutes les routes enfants.
   const session = await getSession(request);
   const token = session.get('token');
   if (!token) return { player: null };
 
+  // /api/me transforme le token en fiche joueur utilisable par l'en-tête.
   const res = await api('/api/me', { token });
   if (res.status === 401) {
     // Jeton expiré ou révoqué : on vide le cookie.
@@ -31,7 +36,9 @@ export async function loader({ request }) {
 
 // Pas besoin de relire /api/me quand seule la partie est rafraîchie par le polling.
 export function shouldRevalidate({ formMethod, currentUrl, nextUrl, defaultShouldRevalidate }) {
+  // Une action ou un changement de route peut modifier les données racines.
   if (formMethod || currentUrl.pathname !== nextUrl.pathname) return defaultShouldRevalidate;
+  // Le polling d'une partie ne doit pas recharger le joueur chaque seconde.
   return false;
 }
 

@@ -8,6 +8,8 @@ let storage;
 
 function getStorage() {
   if (!storage) {
+    // Le stockage est initialisé à la première requête, pas au chargement du
+    // module. Cela évite de lire la configuration avant que le serveur soit prêt.
     const secret = process.env.SESSION_SECRET;
     if (!secret && process.env.NODE_ENV === 'production') {
       throw new Error('SESSION_SECRET doit être défini en production.');
@@ -29,6 +31,7 @@ function getStorage() {
 }
 
 export function getSession(request) {
+  // React Router décode et vérifie ici le cookie signé reçu dans la requête.
   return getStorage().getSession(request.headers.get('Cookie'));
 }
 
@@ -42,6 +45,8 @@ export function destroySession(session) {
 
 export async function getToken(request) {
   const session = await getSession(request);
+  // Le cookie contient le jeton de l'API; il ne contient pas toute la fiche du
+  // joueur, qui reste récupérée par GET /api/me.
   return session.get('token') ?? null;
 }
 
